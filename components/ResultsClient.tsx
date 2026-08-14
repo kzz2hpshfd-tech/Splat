@@ -104,7 +104,12 @@ export default function ResultsClient() {
 
       {!ready && (
         <div className="flex flex-col items-center justify-center py-16">
-          <GlobeSplat cityLabel={location ? `${location.city}, ${location.stateAbbr}` : undefined} onComplete={() => setAnimationDone(true)} />
+          <GlobeSplat
+            targetLat={location?.lat}
+            targetLng={location?.lng}
+            cityLabel={location ? `${location.city}, ${location.stateAbbr}` : undefined}
+            onComplete={() => setAnimationDone(true)}
+          />
           <p className="mt-16 text-sm font-semibold uppercase tracking-[0.3em] text-white/40">
             {state === "loading" ? "splatting you down…" : "locking it in…"}
           </p>

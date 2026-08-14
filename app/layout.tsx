@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { bungee, inter } from "./fonts";
 import Nav from "@/components/Nav";
+import BottomNav from "@/components/BottomNav";
 
 export const metadata: Metadata = {
   title: "splat",
@@ -17,7 +18,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${bungee.variable} ${inter.variable}`}>
       <body className="font-body text-white antialiased overflow-x-hidden">
         <Nav />
-        {children}
+        <div className="pb-20">{children}</div>
+        <BottomNav />
       </body>
     </html>
   );

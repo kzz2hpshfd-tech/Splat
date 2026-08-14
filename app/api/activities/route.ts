@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { geocodeZip } from "@/lib/zip";
 import { generateActivities } from "@/lib/activities";
 
+// Next.js 14 force-caches any fetch() by default, including the Anthropic SDK's
+// outbound call — without this, every search after the first returns the same
+// cached response regardless of ZIP/persona/vibe/budget.
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { zip, personaId, vibeId, budgetId } = body ?? {};
