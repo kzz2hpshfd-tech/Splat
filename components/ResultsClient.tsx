@@ -26,6 +26,7 @@ export default function ResultsClient() {
   const [location, setLocation] = useState<ZipLocation | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [source, setSource] = useState<"ai" | "fallback" | null>(null);
+  const [sourceReason, setSourceReason] = useState<string | undefined>(undefined);
   const [animationDone, setAnimationDone] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -43,11 +44,12 @@ export default function ResultsClient() {
         if (!res.ok) throw new Error("failed");
         return res.json();
       })
-      .then((data: { location: ZipLocation; activities: Activity[]; source: "ai" | "fallback" }) => {
+      .then((data: { location: ZipLocation; activities: Activity[]; source: "ai" | "fallback"; reason?: string }) => {
         if (cancelled) return;
         setLocation(data.location);
         setActivities(data.activities);
         setSource(data.source);
+        setSourceReason(data.reason);
         setState("done");
         saveSearch({ location: data.location, personaId, vibeId, budgetId, activities: data.activities });
       })
@@ -132,7 +134,9 @@ export default function ResultsClient() {
             </p>
             {source && (
               <p className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-white/30">
-                {source === "ai" ? "✨ ai-generated" : "📋 curated list (no ANTHROPIC_API_KEY set)"}
+                {source === "ai"
+                  ? "✨ ai-generated"
+                  : `📋 curated list (${sourceReason ?? "AI request failed — check server logs"})`}
               </p>
             )}
           </div>

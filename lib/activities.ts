@@ -25,6 +25,7 @@ export type SearchParams = {
 export type ActivitiesResult = {
   activities: Activity[];
   source: "ai" | "fallback";
+  reason?: string;
 };
 
 /**
@@ -33,15 +34,17 @@ export type ActivitiesResult = {
  * app always works out of the box.
  */
 export async function generateActivities(params: SearchParams): Promise<ActivitiesResult> {
-  if (anthropic) {
-    try {
-      return { activities: await generateWithClaude(params), source: "ai" };
-    } catch (err) {
-      console.error("[splat] Claude activity generation failed, falling back to template:", err);
-      return { activities: generateFromTemplate(params), source: "fallback" };
-    }
+  if (!anthropic) {
+    return { activities: generateFromTemplate(params), source: "fallback", reason: "no ANTHROPIC_API_KEY set" };
   }
-  return { activities: generateFromTemplate(params), source: "fallback" };
+
+  try {
+    return { activities: await generateWithClaude(params), source: "ai" };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.error("[splat] Claude activity generation failed, falling back to template:", err);
+    return { activities: generateFromTemplate(params), source: "fallback", reason };
+  }
 }
 
 async function generateWithClaude({ location, personaId, vibeId, budgetId }: SearchParams): Promise<Activity[]> {

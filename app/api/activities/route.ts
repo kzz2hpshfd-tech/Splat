@@ -19,7 +19,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing personaId" }, { status: 400 });
   }
 
-  const { activities, source } = await generateActivities({ location, personaId, vibeId, budgetId });
+  const { activities, source, reason } = await generateActivities({ location, personaId, vibeId, budgetId });
 
-  return NextResponse.json({ location, activities, source });
+  // Full error text (billing/quota/auth details) stays in server logs only —
+  // the client only ever sees the safe, generic "no key configured" case.
+  const publicReason = reason === "no ANTHROPIC_API_KEY set" ? reason : undefined;
+
+  return NextResponse.json({ location, activities, source, reason: publicReason });
 }
