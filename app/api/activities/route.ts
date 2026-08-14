@@ -21,9 +21,8 @@ export async function POST(req: NextRequest) {
 
   const { activities, source, reason } = await generateActivities({ location, personaId, vibeId, budgetId });
 
-  // Full error text (billing/quota/auth details) stays in server logs only —
-  // the client only ever sees the safe, generic "no key configured" case.
-  const publicReason = reason === "no ANTHROPIC_API_KEY set" ? reason : undefined;
-
-  return NextResponse.json({ location, activities, source, reason: publicReason });
+  // TODO before any wider/public launch: this exposes the AI-failure reason
+  // (key shape, Anthropic error text) to any visitor. Fine for now while
+  // debugging solo — restrict to server logs once this is confirmed working.
+  return NextResponse.json({ location, activities, source, reason });
 }

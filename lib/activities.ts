@@ -2,10 +2,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { ZipLocation } from "./zip";
 import { findPersona, findVibe } from "./personas";
 
-const anthropic = process.env.ANTHROPIC_API_KEY
-  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  : null;
-
 export type Activity = {
   id: string;
   title: string;
@@ -28,26 +24,51 @@ export type ActivitiesResult = {
   reason?: string;
 };
 
+function describeKeyShape(): string {
+  const raw = process.env.ANTHROPIC_API_KEY;
+  if (raw === undefined) return "env var is not set on this deployment at all";
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return "env var is set but empty/blank";
+  if (trimmed !== raw) return `env var has leading/trailing whitespace (len ${raw.length}, trimmed ${trimmed.length})`;
+  if (!trimmed.startsWith("sk-ant-")) {
+    return `env var is set (len ${trimmed.length}) but doesn't start with "sk-ant-" — wrong value pasted?`;
+  }
+  return `looks structurally valid (len ${trimmed.length}, starts with sk-ant-)`;
+}
+
 /**
  * Asks Claude for a persona-aware list of local activities. Falls back to a
  * deterministic template generator when no API key is configured, so the
  * app always works out of the box.
+ *
+ * Reads process.env fresh on every call (not cached at module load) and
+ * reports the key's shape on failure, so a misconfigured/malformed key is
+ * diagnosable from the UI alone, without digging through deployment logs.
  */
 export async function generateActivities(params: SearchParams): Promise<ActivitiesResult> {
-  if (!anthropic) {
-    return { activities: generateFromTemplate(params), source: "fallback", reason: "no ANTHROPIC_API_KEY set" };
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+
+  if (!apiKey) {
+    const reason = `no working ANTHROPIC_API_KEY (${describeKeyShape()})`;
+    console.error(`[splat] ${reason}`);
+    return { activities: generateFromTemplate(params), source: "fallback", reason };
   }
 
   try {
-    return { activities: await generateWithClaude(params), source: "ai" };
+    return { activities: await generateWithClaude(params, apiKey), source: "ai" };
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    console.error("[splat] Claude activity generation failed, falling back to template:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    const reason = `AI call failed: ${message}`;
+    console.error(`[splat] ${reason} — key shape: ${describeKeyShape()}`, err);
     return { activities: generateFromTemplate(params), source: "fallback", reason };
   }
 }
 
-async function generateWithClaude({ location, personaId, vibeId, budgetId }: SearchParams): Promise<Activity[]> {
+async function generateWithClaude(
+  { location, personaId, vibeId, budgetId }: SearchParams,
+  apiKey: string
+): Promise<Activity[]> {
+  const anthropic = new Anthropic({ apiKey });
   const persona = findPersona(personaId);
   const vibe = findVibe(vibeId);
 
@@ -62,7 +83,7 @@ Suggest 6 real, specific, genuinely fun things to do near ${location.city}, ${lo
 Return ONLY a JSON array, no prose, no markdown fences, in this exact shape:
 [{"title":"<short punchy name>","category":"<one of: Food & Drink, Outdoors, Nightlife, Arts & Culture, Chill, Adventure>","description":"<1-2 sentences, specific and concrete>","whyItFits":"<short phrase tying it to the trip type, e.g. 'low-key enough for mom, cute enough for a date'>","priceTier":"<one of: Free, $, $$, $$$>"}]`;
 
-  const response = await anthropic!.messages.create({
+  const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1500,
     messages: [{ role: "user", content: prompt }],
