@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing personaId" }, { status: 400 });
   }
 
-  const activities = await generateActivities({ location, personaId, vibeId, budgetId });
+  const { activities, source } = await generateActivities({ location, personaId, vibeId, budgetId });
 
-  return NextResponse.json({ location, activities });
+  return NextResponse.json({ location, activities, source });
 }

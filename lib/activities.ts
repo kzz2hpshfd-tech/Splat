@@ -22,20 +22,26 @@ export type SearchParams = {
   budgetId?: string;
 };
 
+export type ActivitiesResult = {
+  activities: Activity[];
+  source: "ai" | "fallback";
+};
+
 /**
  * Asks Claude for a persona-aware list of local activities. Falls back to a
  * deterministic template generator when no API key is configured, so the
  * app always works out of the box.
  */
-export async function generateActivities(params: SearchParams): Promise<Activity[]> {
+export async function generateActivities(params: SearchParams): Promise<ActivitiesResult> {
   if (anthropic) {
     try {
-      return await generateWithClaude(params);
-    } catch {
-      return generateFromTemplate(params);
+      return { activities: await generateWithClaude(params), source: "ai" };
+    } catch (err) {
+      console.error("[splat] Claude activity generation failed, falling back to template:", err);
+      return { activities: generateFromTemplate(params), source: "fallback" };
     }
   }
-  return generateFromTemplate(params);
+  return { activities: generateFromTemplate(params), source: "fallback" };
 }
 
 async function generateWithClaude({ location, personaId, vibeId, budgetId }: SearchParams): Promise<Activity[]> {
@@ -135,11 +141,17 @@ const TEMPLATES: Record<string, Omit<Activity, "id" | "description">[]> = {
   ],
 };
 
-function generateFromTemplate({ location, personaId }: SearchParams): Activity[] {
+function generateFromTemplate({ location, personaId, vibeId, budgetId }: SearchParams): Activity[] {
   const items = TEMPLATES[personaId] ?? TEMPLATES.romantic;
-  return items.map((item, i) => ({
-    ...item,
-    id: `${location.zip}-${personaId}-${i}`,
-    description: `A ${item.category.toLowerCase()} pick near ${location.city}, ${location.stateAbbr} — the kind of spot locals actually go back to.`,
-  }));
+  const vibe = findVibe(vibeId);
+
+  return items.map((item, i) => {
+    const vibeClause = vibe ? `, tuned for a ${vibe.label.toLowerCase()} mood` : "";
+    const budgetClause = budgetId ? ` if you're keeping it around ${budgetId}` : "";
+    return {
+      ...item,
+      id: `${location.zip}-${personaId}-${vibeId ?? "any"}-${budgetId ?? "any"}-${i}`,
+      description: `A ${item.category.toLowerCase()} pick near ${location.city}, ${location.stateAbbr}${vibeClause} — the kind of spot locals actually go back to${budgetClause}.`,
+    };
+  });
 }
